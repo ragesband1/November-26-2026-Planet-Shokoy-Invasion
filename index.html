@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fil-PH">
+<head>
+  <meta charset="UTF-8" />
+  <title>Planet Shokoy Invasion</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: Arial, sans-serif;
+      color: white;
+      user-select: none;
+    }
+
+    #gameCanvas {
+      display: block;
+      margin: 0 auto;
+      background: radial-gradient(circle, #0b0b2a 0%, #000000 100%);
+    }
+
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 16px;
+      text-shadow: 1px 1px 2px black;
+    }
+
+    #message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      font-size: 24px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 20px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+      background: #444;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div>Earth Health: <span id="health">100</span></div>
+    <div>Shokoy Ships: <span id="enemies">0</span></div>
+    <div>Score: <span id="score">0</span></div>
+  </div>
+
+  <div id="message">
+    <div id="messageText"></div>
+    <button onclick="startGame()">Start Game</button>
+  </div>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let gameRunning = false;
+    let score = 0;
+    let health = 100;
+    let enemyCount = 0;
+    let spawnTimer = 0;
+    let difficulty = 1;
+
+    const dogShokoy = {
+      x: canvas.width / 2,
+      y: canvas.height - 80,
+      size: 50,
+      speed: 7
+    };
+
+    const earth = {
+      x: canvas.width / 2,
+      y: canvas.height - 20,
+      size: 120
+    };
+
+    let enemies = [];
+    let particles = [];
+
+    function startGame() {
+      document.getElementById('message').style.display = 'none';
+      gameRunning = true;
+      score = 0;
+      health = 100;
+      enemyCount = 0;
+      difficulty = 1;
+      enemies = [];
+      particles = [];
+      dogShokoy.x = canvas.width / 2;
+      updateUI();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function gameOver() {
+      gameRunning = false;
+      document.getElementById('messageText').innerText = "NAINVADE ang Earth! Game Over.";
+      document.getElementById('message').style.display = 'block';
+    }
+
+    function winGame() {
+      gameRunning = false;
+      document.getElementById('messageText').innerText = "Napanalunan ni Dog Shokoy ang Earth!";
+      document.getElementById('message').style.display = 'block';
+    }
+
+    function updateUI() {
+      document.getElementById('health').innerText = health;
+      document.getElementById('enemies').innerText = enemyCount;
+      document.getElementById('score').innerText = score;
+    }
+
+    function spawnEnemy() {
+      const size = 30;
+      const x = Math.random() * (canvas.width - size * 2) + size;
+      enemies.push({
+        x: x,
+        y: -size,
+        size: size,
+        speed: 2 + difficulty * 0.5
+      });
+      enemyCount++;
+    }
+
+    function createExplosion(x, y, color) {
+      for (let i = 0; i < 10; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 6,
+          vy: (Math.random() - 0.5) * 6,
+          life: 30,
+          color: color
+        });
+      }
+    }
+
+    function drawEarth() {
+      ctx.beginPath();
+      ctx.arc(earth.x, earth.y, earth.size, 0, Math.PI * 2);
+      ctx.fillStyle = '#1e90ff';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Earth', earth.x, earth.y + 5);
+    }
+
+    function drawDogShokoy() {
+      ctx.save();
+      ctx.translate(dogShokoy.x, dogShokoy.y);
+
+      // body
+      ctx.fillStyle = '#8B4513';
+      ctx.beginPath();
+      ctx.arc(0, 0, dogShokoy.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ears
+      ctx.fillStyle = '#654321';
+      ctx.beginPath();
+      ctx.ellipse(-15, -15, 10, 20, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(15, -15, 10, 20, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // eyes
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(-10, -5, 6, 0, Math.PI * 2);
+      ctx.arc(10, -5, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'black';
+      ctx.beginPath();
+      ctx.arc(-10, -5, 3, 0, Math.PI * 2);
+      ctx.arc(10, -5, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // nose
+      ctx.fillStyle = 'black';
+      ctx.beginPath();
+      ctx.arc(0, 5, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawEnemies() {
+      enemies.forEach(enemy => {
+        ctx.save();
+        ctx.translate(enemy.x, enemy.y);
+
+        // spaceship body
+        ctx.fillStyle = '#555';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, enemy.size, enemy.size / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // cockpit
+        ctx.fillStyle = '#00ffff';
+        ctx.beginPath();
+        ctx.arc(0, -5, enemy.size / 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Planet Shokoy label
+        ctx.fillStyle = '#ff4444';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Shokoy', 0, enemy.size / 2 + 12);
+
+        ctx.restore();
+      });
+    }
+
+    function drawParticles() {
+      particles.forEach((p, index) => {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life / 30;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+
+        if (p.life <= 0) particles.splice(index, 1);
+      });
+    }
+
+    function gameLoop() {
+      if (!gameRunning) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawEarth();
+      drawDogShokoy();
+      drawEnemies();
+      drawParticles();
+
+      // Spawn enemies
+      spawnTimer++;
+      if (spawnTimer > 60 - difficulty * 5) {
+        spawnEnemy();
+        spawnTimer = 0;
+      }
+
+      // Move enemies
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        let e = enemies[i];
+        e.y += e.speed;
+
+        // Check collision with Earth
+        const dx = e.x - earth.x;
+        const dy = e.y - earth.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < earth.size + e.size) {
+          health -= 10;
+          createExplosion(e.x, e.y, '#ff4444');
+          enemies.splice(i, 1);
+          enemyCount--;
+          updateUI();
+
+          if (health <= 0) {
+            gameOver();
+            return;
+          }
+        }
+
+        // Check collision with Dog Shokoy
+        const dogDx = e.x - dogShokoy.x;
+        const dogDy = e.y - dogShokoy.y;
+        const dogDist = Math.sqrt(dogDx * dogDx + dogDy * dogDy);
+
+        if (dogDist < dogShokoy.size / 2 + e.size) {
+          score += 10;
+          createExplosion(e.x, e.y, '#00ffff');
+          enemies.splice(i, 1);
+          enemyCount--;
+          updateUI();
+        }
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Controls
+    let leftPressed = false;
+    let rightPressed = false;
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') leftPressed = true;
+      if (e.key === 'ArrowRight' || e.key === 'd') rightPressed = true;
+    });
+
+    document.addEventListener('keyup', e => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') leftPressed = false;
+      if (e.key === 'ArrowRight' || e.key === 'd') rightPressed = false;
+    });
+
+    function updateDogShokoy() {
+      if (leftPressed) dogShokoy.x -= dogShokoy.speed;
+      if (rightPressed) dogShokoy.x += dogShokoy.speed;
+
+      if (dogShokoy.x < dogShokoy.size / 2) dogShokoy.x = dogShokoy.size / 2;
+      if (dogShokoy.x > canvas.width - dogShokoy.size / 2) dogShokoy.x = canvas.width - dogShokoy.size / 2;
+    }
+
+    setInterval(updateDogShokoy, 16);
+
+    document.getElementById('message').style.display = 'block';
+    document.getElementById('messageText').innerText = "Iwasan ang spaceship mula sa Planet Shokoy!";
+  </script>
+</body>
+</html>
